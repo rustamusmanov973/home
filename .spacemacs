@@ -10,6 +10,7 @@ values."
    ;; Base distribution to use. This is a layer contained in the directory
    ;; `+distribution'. For now available distributions are `spacemacs-base'
    ;; or `spacemacs'. (default 'spacemacs)
+   dotspacemacs-enable-paste-transient-state t
    dotspacemacs-distribution 'spacemacs
    ;; Lazy installation of layers (i.e. layers are installed only when a file
    ;; with a supported type is opened). Possible values are `all', `unused'
@@ -307,96 +308,96 @@ executes.
  This function is mostly useful for variables that need to be set
 before packages are loaded. If you are unsure, you should try in setting them in
 `dotspacemacs/user-config' first."
-  (defun say (str) 
-    (shell-command-to-string (concat "say '"  str "'"))
+ (defun say (str)
+   (shell-command-to-string (concat "say '"  str "'"))
     )
-  (defun asay (str) 
+  (defun asay (str)
+    "Say str asynchronously"
     (async-shell-command (concat "say '"  str "'"))
     )
   (defun vdp ()
     (and (boundp 'db) (member db '(t 1)))
     )
 
-  (cl-defun vd (sym &optional (comment "") (idb nil)) 
+  (cl-defun vd (sym &optional (comment "") (idb nil))
     (when (or idb (vdp))
-      (or (string= "" comment) 
-          (progn 
+      (or (string= "" comment)
+          (progn
             (setq comment2 (concat "[" comment "]"))
             (setq comment comment2)))
 
 
       (setq arg_type (type-of sym))
-      (cond 
-       ((typep sym 'symbol) 
-        (progn 
-          (setq var_name (symbol-name sym)
-                (setq var_value (symbol-value sym))
-                )
+      (cond
+       ((typep sym 'symbol)
+        (progn
+          (setq var_name (symbol-name sym))
+          (setq var_value (symbol-value sym))
           )
-        (t (progn (print "VD: UNKNOWN variable TYPE. your var:") (print sym)))
         )
+       (t (progn (print "VD: UNKNOWN variable TYPE. your var:") (print sym))))
        (princ (concat "VD["
                       var_name
                       "]"
-                      comment2
+                      comment
                       ">>|"))
        (princ var_value)
        (princ "|\n")
 
-       ))
+       ));;
     (setq db 1)
 
     (defun shell-command-to-trimmed-string (str)
-    (setq db 0)
+    (setq db 1)
     (vd 'str)
     (setq otp (shell-command-to-string  str))
     (vd 'otp "b tr")
     (setq trimmed_output (string-trim otp))
     )
+
   (defun write_goku_with_py ()
-      (setq kar_py_stderr 
-(shell-command-to-trimmed-string  "karabiner_edn_writer.py >/dev/null"))
+    (print  "write_goku_with_py started")
+      (setq kar_py_stderr
+            (shell-command-to-trimmed-string  "/Users/rst/.config/karabiner/karabiner_edn_writer.py >/dev/null"))
     (setq db 1)
-  (vd 'kar_py_stderr "a")
+  (vd 'kar_py_stderr "write_goku_with_py started")
       (if (string= "" kar_py_stderr)
     ;; (print "OK")
     (make_goku)
-    (progn 
+    (progn
   (print (concat "a_rst: karabiner_edn_writer.py ERROR>>|" kar_py_stderr "|"))
   (asay "python karabiner writer error")
   )))
-(write_goku_with_py)
 
 
 
-  (defun make_goku () 
+  (defun make_goku ()
   (setq goku_output (shell-command-to-trimmed-string  "goku &; sleep 2; kill -9 $!"))
   (if (string-match "Done!" goku_output )
   ;; (print "make_goku: OK")
-  ()
-  (progn 
+  (progn
   (print (concat "make_goku ERROR: goku_output not 'Done!'>>|" goku_output "|"))
   (asay "goku error")
-  )
-  )
-  )
+  )))
   (make_goku)
 
 
 
 
-
-    (defun my-after-save-actions ()
+    (defun my-after-save-actions ();
         "Used in `after-save-hook'."
         (print "After save activated")
+        (say "After save activated")
   (setq db 1)
         (vd 'buffer-file-name )
-        (cond 
+        (setq kp_fn "/Users/rst/.config/karabiner_prettified_before_python_inject.edn"  )
+        (cond
   ((string-equal buffer-file-name "/Users/rst/.config/karabiner.edn")
   (progn (and (vdp) (say "Saving file"))  (or (make_goku) (say "goku done, but use kar py file instead"))))
-  ((string-equal buffer-file-name "/Users/rst/.config/karabiner_prettified_re_python_inject.edn")
+  ((string-equal buffer-file-name kp_fn)
   (write_goku_with_py)))
   )
+    (say "ar")
     (add-hook 'after-save-hook 'my-after-save-actions)
   (defun backward-kill-line (arg)
     "Kill ARG lines backward."
@@ -408,13 +409,13 @@ before packages are loaded. If you are unsure, you should try in setting them in
   (global-set-key (kbd "M-s-!") 'beginning-of-line)
   (global-set-key (kbd "M-s-@") 'end-of-line)
   (global-set-key (kbd "M-s-#") 'evil-backward-word-begin)
-  (setq org-todo-keywords                                                                                        
+  (setq org-todo-keywords
         '((sequence "TODO(t!)" "NEXT(n!)" "DOINGNOW(d!)" "BLOCKED(b!)" "TODELEGATE(g!)" "DELEGATED(D!)" "FOLLOWUP(f!)" "TICKLE(T!)" "|" "CANCELLED(c!)" "DONE(F!)")))
   (setq org-todo-keyword-faces
-        '(("TODO" . org-warning)                                                                                          
-          ("DOINGNOW" . "#E35DBF")                                                                                        
-          ("CANCELED" . (:foreground "white" :background "#4d4d4d" :weight bold))                                         
-          ("DELEGATED" . "pink")                                                                                          
+        '(("TODO" . org-warning)
+          ("DOINGNOW" . "#E35DBF")
+          ("CANCELED" . (:foreground "white" :background "#4d4d4d" :weight bold))
+          ("DELEGATED" . "pink")
           ("NEXT" . "#008080")))
   (defun h_world ()
     (print "hello world!!")
@@ -422,7 +423,7 @@ before packages are loaded. If you are unsure, you should try in setting them in
   (defun my-custom-command ()
     (print "hello world!!")
     )
- ;; KEYS definitions: 
+ ;; KEYS definitions:
   ;; (global-set-key (kbd ""))
   (with-eval-after-load 'spacemacs
   (spacemacs/declare-prefix "o" "custom")
@@ -438,18 +439,7 @@ before packages are loaded. If you are unsure, you should try in setting them in
     (setq dired-use-ls-dired nil))
   (setq my_path (getenv "PATH"))
   (progn (print "my_path:")(print my_path))
-  (defun my-after-save-actions ()
-    "Used in `after-save-hook'."
-    (print "aaa")
 
-    (when (string-equal buffer-file-name "/Users/rst/.config/karabiner.edn") (start-process "goku" nil "goku" ""))
-    (when (string-equal buffer-file-name "/Users/rst/.config/karabiner_prettified_before_python_inject.edn") (start-process "python and goku" nil "/Users/rst/lib/rc/karabiner_edn_writer.py && goku" ""))
-    )
-
-  (add-hook 'after-save-hook 'my-after-save-actions)
- ;; (defun do-some-actions () 
-  ;;        (..put a copy of the current file in a specific folder...)
-  ;;        ) 
   (load "~/.hammerspoon/spacehammer.el")
 (global-visual-line-mode t)
 ;; (require 'atomic-chrome)
@@ -484,6 +474,7 @@ before packages are loaded. If you are unsure, you should try in setting them in
 
   )
 
+
 ;; ("\\.Z\\'" nil jka-compr)
 
 (defun dotspacemacs/user-config ()
@@ -493,6 +484,8 @@ layers configuration.
 This is the place where most of your configurations should be done. Unless it is
 explicitly specified that a variable should be set before a package is loaded,
 you should place your code here."
+  (define-key global-map (kbd "<tab>") 'beginning-of-line)
+  (message "very end!! of /Users/rst/.spacemacs !!!")
   )
 
 ;; Do not write anything past this comment. This is where Emacs will
@@ -505,7 +498,7 @@ you should place your code here."
  '(org-agenda-files (quote ("~/org/main.org")))
  '(package-selected-packages
    (quote
-    (atomic-chrome bm evil-snipe pdf-tools tablist applescript-mode web-beautify livid-mode skewer-mode simple-httpd json-mode json-snatcher json-reformat js2-refactor js2-mode js-doc company-tern tern coffee-mode clojure-snippets clj-refactor inflections multiple-cursors paredit cider-eval-sexp-fu cider sesman queue parseedn clojure-mode parseclj a lua-mode yaml-mode phpunit phpcbf php-extras php-auto-yasnippets drupal-mode php-mode web-mode tagedit slim-mode scss-mode sass-mode pug-mode helm-css-scss haml-mode emmet-mode company-web web-completion-data yapfify pyvenv pytest pyenv-mode py-isort pip-requirements live-py-mode hy-mode dash-functional helm-pydoc cython-mode company-anaconda anaconda-mode pythonic unfill mwim helm-company helm-c-yasnippet git-gutter-fringe+ git-gutter-fringe fringe-helper git-gutter+ git-gutter fuzzy diff-hl company-statistics company ac-ispell auto-complete org-evil monitor auto-yasnippet yasnippet smeargle orgit org-projectile org-category-capture org-present org-pomodoro alert log4e gntp org-mime org-download mmm-mode markdown-toc markdown-mode magit-gitflow magit-popup htmlize helm-gitignore gnuplot gitignore-mode gitconfig-mode gitattributes-mode git-timemachine git-messenger git-link gh-md flyspell-correct-helm flyspell-correct flycheck-pos-tip pos-tip flycheck evil-magit magit git-commit with-editor transient auto-dictionary dired-ranger ranger ws-butler winum which-key volatile-highlights vi-tilde-fringe uuidgen use-package toc-org spaceline restart-emacs request rainbow-delimiters popwin persp-mode pcre2el paradox org-plus-contrib org-bullets open-junk-file neotree move-text macrostep lorem-ipsum linum-relative link-hint indent-guide hungry-delete hl-todo highlight-parentheses highlight-numbers highlight-indentation helm-themes helm-swoop helm-projectile helm-mode-manager helm-make helm-flx helm-descbinds helm-ag google-translate golden-ratio flx-ido fill-column-indicator fancy-battery eyebrowse expand-region exec-path-from-shell evil-visualstar evil-visual-mark-mode evil-unimpaired evil-tutor evil-surround evil-search-highlight-persist evil-numbers evil-nerd-commenter evil-mc evil-matchit evil-lisp-state evil-indent-plus evil-iedit-state evil-exchange evil-escape evil-ediff evil-args evil-anzu eval-sexp-fu elisp-slime-nav dumb-jump diminish define-word column-enforce-mode clean-aindent-mode auto-highlight-symbol auto-compile aggressive-indent adaptive-wrap ace-window ace-link ace-jump-helm-line))))
+    (ob-applescript atomic-chrome bm evil-snipe pdf-tools tablist applescript-mode web-beautify livid-mode skewer-mode simple-httpd json-mode json-snatcher json-reformat js2-refactor js2-mode js-doc company-tern tern coffee-mode clojure-snippets clj-refactor inflections multiple-cursors paredit cider-eval-sexp-fu cider sesman queue parseedn clojure-mode parseclj a lua-mode yaml-mode phpunit phpcbf php-extras php-auto-yasnippets drupal-mode php-mode web-mode tagedit slim-mode scss-mode sass-mode pug-mode helm-css-scss haml-mode emmet-mode company-web web-completion-data yapfify pyvenv pytest pyenv-mode py-isort pip-requirements live-py-mode hy-mode dash-functional helm-pydoc cython-mode company-anaconda anaconda-mode pythonic unfill mwim helm-company helm-c-yasnippet git-gutter-fringe+ git-gutter-fringe fringe-helper git-gutter+ git-gutter fuzzy diff-hl company-statistics company ac-ispell auto-complete org-evil monitor auto-yasnippet yasnippet smeargle orgit org-projectile org-category-capture org-present org-pomodoro alert log4e gntp org-mime org-download mmm-mode markdown-toc markdown-mode magit-gitflow magit-popup htmlize helm-gitignore gnuplot gitignore-mode gitconfig-mode gitattributes-mode git-timemachine git-messenger git-link gh-md flyspell-correct-helm flyspell-correct flycheck-pos-tip pos-tip flycheck evil-magit magit git-commit with-editor transient auto-dictionary dired-ranger ranger ws-butler winum which-key volatile-highlights vi-tilde-fringe uuidgen use-package toc-org spaceline restart-emacs request rainbow-delimiters popwin persp-mode pcre2el paradox org-plus-contrib org-bullets open-junk-file neotree move-text macrostep lorem-ipsum linum-relative link-hint indent-guide hungry-delete hl-todo highlight-parentheses highlight-numbers highlight-indentation helm-themes helm-swoop helm-projectile helm-mode-manager helm-make helm-flx helm-descbinds helm-ag google-translate golden-ratio flx-ido fill-column-indicator fancy-battery eyebrowse expand-region exec-path-from-shell evil-visualstar evil-visual-mark-mode evil-unimpaired evil-tutor evil-surround evil-search-highlight-persist evil-numbers evil-nerd-commenter evil-mc evil-matchit evil-lisp-state evil-indent-plus evil-iedit-state evil-exchange evil-escape evil-ediff evil-args evil-anzu eval-sexp-fu elisp-slime-nav dumb-jump diminish define-word column-enforce-mode clean-aindent-mode auto-highlight-symbol auto-compile aggressive-indent adaptive-wrap ace-window ace-link ace-jump-helm-line))))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
