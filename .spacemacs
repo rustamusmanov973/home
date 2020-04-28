@@ -308,6 +308,10 @@ executes.
  This function is mostly useful for variables that need to be set
 before packages are loaded. If you are unsure, you should try in setting them in
 `dotspacemacs/user-config' first."
+  (defun pm (str)
+    (print str)
+    (message str)
+    )
  (defun say (str)
    (shell-command-to-string (concat "say '"  str "'"))
     )
@@ -326,7 +330,6 @@ before packages are loaded. If you are unsure, you should try in setting them in
             (setq comment2 (concat "[" comment "]"))
             (setq comment comment2)))
 
-
       (setq arg_type (type-of sym))
       (cond
        ((typep sym 'symbol)
@@ -336,15 +339,14 @@ before packages are loaded. If you are unsure, you should try in setting them in
           )
         )
        (t (progn (print "VD: UNKNOWN variable TYPE. your var:") (print sym))))
-       (princ (concat "VD["
+       (message (concat "VD["
                       var_name
                       "]"
                       comment
-                      ">>|"))
-       (princ var_value)
-       (princ "|\n")
+                      ">>:"))
+       (message var_value)
 
-       ));;
+       ))
     (setq db 1)
 
     (defun shell-command-to-trimmed-string (str)
@@ -354,11 +356,11 @@ before packages are loaded. If you are unsure, you should try in setting them in
     (vd 'otp "b tr")
     (setq trimmed_output (string-trim otp))
     )
-
-  (defun write_goku_with_py ()
+    (defun write_goku_with_py ()
+      (interactive )
     (print  "write_goku_with_py started")
       (setq kar_py_stderr
-            (shell-command-to-trimmed-string  "/Users/rst/.config/karabiner/karabiner_edn_writer.py >/dev/null"))
+            (shell-command-to-trimmed-string  "/Users/rst/.config/karabiner_edn_writer.py >/dev/null"))
     (setq db 1)
   (vd 'kar_py_stderr "write_goku_with_py started")
       (if (string= "" kar_py_stderr)
@@ -369,25 +371,19 @@ before packages are loaded. If you are unsure, you should try in setting them in
   (asay "python karabiner writer error")
   )))
 
-
-
   (defun make_goku ()
   (setq goku_output (shell-command-to-trimmed-string  "goku &; sleep 2; kill -9 $!"))
   (if (string-match "Done!" goku_output )
-  ;; (print "make_goku: OK")
+  (print "make_goku: OK")
   (progn
   (print (concat "make_goku ERROR: goku_output not 'Done!'>>|" goku_output "|"))
   (asay "goku error")
   )))
   (make_goku)
 
-
-
-
     (defun my-after-save-actions ();
         "Used in `after-save-hook'."
         (print "After save activated")
-        (say "After save activated")
   (setq db 1)
         (vd 'buffer-file-name )
         (setq kp_fn "/Users/rst/.config/karabiner_prettified_before_python_inject.edn"  )
@@ -409,6 +405,7 @@ before packages are loaded. If you are unsure, you should try in setting them in
   (global-set-key (kbd "M-s-!") 'beginning-of-line)
   (global-set-key (kbd "M-s-@") 'end-of-line)
   (global-set-key (kbd "M-s-#") 'evil-backward-word-begin)
+  (global-set-key (kbd "C-z") 'org-babel-execute-src-block)
   (setq org-todo-keywords
         '((sequence "TODO(t!)" "NEXT(n!)" "DOINGNOW(d!)" "BLOCKED(b!)" "TODELEGATE(g!)" "DELEGATED(D!)" "FOLLOWUP(f!)" "TICKLE(T!)" "|" "CANCELLED(c!)" "DONE(F!)")))
   (setq org-todo-keyword-faces
@@ -419,21 +416,44 @@ before packages are loaded. If you are unsure, you should try in setting them in
           ("NEXT" . "#008080")))
   (defun h_world ()
     (print "hello world!!")
+    (message "hello world!!")
     )
-  (defun my-custom-command ()
+  (defun hwd ()
+    (interactive)
     (print "hello world!!")
+    (message "hello world!!")
+    )
+  (defun copy_rel_path_auto ()
+    (interactive)
+    (let ((file-name (or (buffer-file-name) list-buffers-directory)))
+      (if file-name
+          (progn
+            (setq nfn (s-replace "/Users/rst/lib/rc/" "" buffer-file-name))
+            (vd 'nfn)
+            (message (kill-new file-name)))
+        (error "Buffer not visiting a file")))
+    )
+  (defun execute-buffer-auto ()
+    (interactive)
+    (print buffer-file-name)
+    (setq qbfn (concat "'" buffer-file-name "'"))
+    (setq scm (concat "chmod 777 " qbfn "; " qbfn))
+    (vd 'scm)
+    (shell-command scm)
     )
  ;; KEYS definitions:
   ;; (global-set-key (kbd ""))
   (with-eval-after-load 'spacemacs
-  (spacemacs/declare-prefix "o" "custom")
-  (spacemacs/set-leader-keys "oc" 'h_world)
+   (spacemacs/set-leader-keys "fy" nil)
+   (spacemacs/declare-prefix "fy" "Yanking ...")
+   (spacemacs/set-leader-keys "fyy" 'spacemacs/show-and-copy-buffer-filename)
+   (spacemacs/set-leader-keys "fya" 'spacemacs/show-and-copy-buffer-filename)
+   (spacemacs/set-leader-keys "fyr" nil)
+   (spacemacs/declare-prefix "fyr" "relative ..")
+   (spacemacs/set-leader-keys "fyrr" 'copy_rel_path_auto)
+   (spacemacs/declare-prefix "bx" "Exec ...")
+   (spacemacs/set-leader-keys "bxx" 'execute-buffer-auto)
   )
-  (spacemacs/declare-prefix "o" "own-menu")
-  (spacemacs/set-leader-keys "o[" 'sp-down-sexp)
-  (spacemacs/set-leader-keys "o]" 'sp-up-sexp)
-  (spacemacs/set-leader-keys "os" 'org-save-all-org-buffers)
-  (spacemacs/set-leader-keys "oi" 'helm-org-agenda-files-headings)
 
   (when (string= system-type "darwin")
     (setq dired-use-ls-dired nil))
@@ -443,8 +463,8 @@ before packages are loaded. If you are unsure, you should try in setting them in
   (load "~/.hammerspoon/spacehammer.el")
 (global-visual-line-mode t)
 ;; (require 'atomic-chrome)
-(atomic-chrome-start-server)
-(setq atomic-chrome-default-major-mode 'markdown-mode)
+;; (atomic-chrome-start-server)
+;; (setq atomic-chrome-default-major-mode 'markdown-mode)
 
 ;;  (require 'package)
 ;  (add-to-list 'package-archives '("org" . "http://orgmode.org/elpa/") t)
@@ -474,7 +494,6 @@ before packages are loaded. If you are unsure, you should try in setting them in
 
   )
 
-
 ;; ("\\.Z\\'" nil jka-compr)
 
 (defun dotspacemacs/user-config ()
@@ -484,8 +503,9 @@ layers configuration.
 This is the place where most of your configurations should be done. Unless it is
 explicitly specified that a variable should be set before a package is loaded,
 you should place your code here."
-  (define-key global-map (kbd "<tab>") 'beginning-of-line)
   (message "very end!! of /Users/rst/.spacemacs !!!")
+;;(persp-load-state-from-file "~/.emacs.d/.cache/layouts/eyebrowse_layout1")
+;;(spacemacs/layouts-transient-state/spacemacs/persp-switch-to-5)
   )
 
 ;; Do not write anything past this comment. This is where Emacs will
