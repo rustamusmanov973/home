@@ -1,3 +1,5 @@
+;; Add yasnippet support for all company backends
+;; https://github.com/syl20bnr/spacemacs/pull/179
 ;; -*- mode: emacs-lisp -*-
 ;; This file is loaded by Spacemacs at startup.
 ;; It must be stored in your home directory.
@@ -32,6 +34,8 @@ values."
    ;; List of configuration layers to load.
    dotspacemacs-configuration-layers
    '(
+     (treemacs :variables treemacs-use-scope-type 'Perspectives)
+     lsp
      javascript
      clojure
      lua
@@ -41,28 +45,42 @@ values."
      ;; <M-m f e R> (Emacs style) to install them.
      ;; ----------------------------------------------------------------
      helm
+     ipython-notebook
      evil-snipe
-     pdf-tools
-     auto-completion
+     (auto-completion :variables
+                      auto-completion-return-key-behavior 'nil
+                      auto-completion-tab-key-behavior 'complete
+                      auto-completion-enable-snippets-in-popup t)
      better-defaults
      emacs-lisp
      git
      markdown
      org
       (shell :variables
-             shell-default-height 30
-             shell-default-position 'right)
+             shell-default-shell 'shell
+             shell-default-height 15
+             shell-default-position 'bottom)
      ;; spell-checking
      syntax-checking
      version-control
      html
-     python
+     (ranger :variables
+             ranger-show-preview t
+             ranger-cleanup-eagerly t
+
+             )
+     (python :variables
+             python-backend 'lsp python-lsp-server 'mspyls
+             python-formatter 'lsp
+             python-format-on-save t
+
+             )
      )
    ;; List of additional packages that will be installed without being
    ;; wrapped in a layer. If you need some configuration for these
    ;; packages, then consider creating a layer. You can also put the
    ;; configuration in `dotspacemacs/user-config'.
-   dotspacemacs-additional-packages '(auto-yasnippet mpg123)
+   dotspacemacs-additional-packages '()
    ;; A list of packages that cannot be updated.
    dotspacemacs-frozen-packages '()
    ;; A list of packages that will not be installed and loaded.
@@ -85,6 +103,9 @@ values."
   ;; This setq-default sexp is an exhaustive list of all the supported
   ;; spacemacs settings.
   (setq-default
+
+   dotspacemacs-mode-line-unicode-symbols t
+   dotspacemacs-mode-line-theme 'spacemacs
    ;; If non nil ELPA repositories are contacted via HTTPS whenever it's
    ;; possible. Set it to nil if you have no way to use HTTPS in your
    ;; environment, otherwise it is strongly recommended to let it set to t.
@@ -300,7 +321,46 @@ values."
    ;; (default nil)
    dotspacemacs-whitespace-cleanup nil
    ))
+(defun save-framegeometry ()
+  "Gets the current frame's geometry and saves to ~/.emacs.d/framegeometry."
+  (let (
+        (framegeometry-left (frame-parameter (selected-frame) 'left))
+        (framegeometry-top (frame-parameter (selected-frame) 'top))
+        (framegeometry-width (frame-parameter (selected-frame) 'width))
+        (framegeometry-height (frame-parameter (selected-frame) 'height))
+        (framegeometry-file (expand-file-name "~/.emacs.d/framegeometry"))
+        )
 
+    (when (not (number-or-marker-p framegeometry-left))
+      (setq framegeometry-left 0))
+    (when (not (number-or-marker-p framegeometry-top))
+      (setq framegeometry-top 0))
+    (when (not (number-or-marker-p framegeometry-width))
+      (setq framegeometry-width 0))
+    (when (not (number-or-marker-p framegeometry-height))
+      (setq framegeometry-height 0))
+
+    (with-temp-buffer
+      (insert
+       ";;; This is the previous emacs frame's geometry.\n"
+       ";;; Last generated " (current-time-string) ".\n"
+       "(setq initial-frame-alist\n"
+       "      '(\n"
+       (format "        (top . %d)\n" (max framegeometry-top 0))
+       (format "        (left . %d)\n" (max framegeometry-left 0))
+       (format "        (width . %d)\n" (max framegeometry-width 0))
+       (format "        (height . %d)))\n" (max framegeometry-height 0)))
+      (when (file-writable-p framegeometry-file)
+        (write-file framegeometry-file))))
+  )
+
+(defun load-framegeometry ()
+  "Loads ~/.emacs.d/framegeometry which should load the previous frame's
+geometry."
+  (let ((framegeometry-file (expand-file-name "~/.emacs.d/framegeometry")))
+    (when (file-readable-p framegeometry-file)
+      (load-file framegeometry-file)))
+  )
 (defun dotspacemacs/user-init ()
   "Initialization function for user code.
 It is called immediately after `dotspacemacs/init', before layer configuration
@@ -308,6 +368,70 @@ executes.
  This function is mostly useful for variables that need to be set
 before packages are loaded. If you are unsure, you should try in setting them in
 `dotspacemacs/user-config' first."
+
+
+(if window-system
+      (progn
+        (add-hook 'after-init-hook 'load-framegeometry)
+        (add-hook 'kill-emacs-hook 'save-framegeometry))
+    )
+;; (require 'atomic-chrome)
+;; (atomic-chrome-start-server)
+;; (setq atomic-chrome-default-major-mode 'markdown-mode)
+
+;;  (require 'package)
+;  (add-to-list 'package-archives '("org" . "http://orgmode.org/elpa/") t)
+  ;; (with-eval-after-load 'org
+  ;; (require 'ox-beamer)
+  ;; (require 'ox-publish)
+  ;; (org-babel-do-load-lanuages 'org-babel-load-languages
+  ;;                      rch       '(
+  ;;                               (shell . t)
+  ;;                                (perl . t)
+  ;;                                (R . t)
+  ;;                                (python . t)
+  ;;                                (C . t)
+  ;;                                (perl . t)
+  ;;                                (php . t)
+  ;;                                (js . t)
+  ;;                                )
+  ;;                              )
+  ;; (defun my-org-confirm-babel-evaluate (lang body)
+  ;;   (not (member lang '("C" "clojure" "sh"))))
+
+  ;; (setq org-confirm-babel-evaluate 'my-org-confirm-babel-evaluate)
+  ;; )
+
+;  USELESS:  (setq exec-path-from-shell-arguments '())
+; USELESS: (setq exec-path-from-shell-check-startup-files nil)
+
+  )
+
+;; ("\\.Z\\'" nil jka-compr)
+
+(defun dotspacemacs/user-config ()
+  "Configuration function for user code.
+This function is called at the very end of Spacemacs initialization after
+layers configuration.
+This is the place where most of your configurations should be done. Unless it is
+explicitly specified that a variable should be set before a package is loaded,
+you should place your code here."
+  (message "very end!! of /Users/rst/.spacemacs !!!")
+  ;; (spacemacs|define-transient-state layouts
+  ;; ....
+  ;;       ("c" persp-copy)
+  ;; ...
+  ;;       (spacemacs/set-leader-keys "l" 'spacemacs/layouts-transient-state/body))
+;;(persp-load-state-from-file "~/.emacs.d/.cache/layouts/eyebrowse_layout1")
+;;(spacemacs/layouts-transient-state/spacemacs/persp-switch-to-5)
+
+    (defun find-file-new-buffer (filename)
+    "Very basic `find-file' which does not use a pre-existing buffer."
+    (interactive "fFind file in new buffer: ")
+    (let ((buf (create-file-buffer filename)))
+      (with-current-buffer buf
+        (insert-file-contents filename t))
+      (pop-to-buffer-same-window buf)))
   (defun pm (str)
     (print str)
     (message str)
@@ -379,7 +503,6 @@ before packages are loaded. If you are unsure, you should try in setting them in
   (print (concat "make_goku ERROR: goku_output not 'Done!'>>|" goku_output "|"))
   (asay "goku error")
   )))
-  (make_goku)
 
     (defun my-after-save-actions ();
         "Used in `after-save-hook'."
@@ -393,27 +516,12 @@ before packages are loaded. If you are unsure, you should try in setting them in
   ((string-equal buffer-file-name kp_fn)
   (write_goku_with_py)))
   )
-    (say "ar")
     (add-hook 'after-save-hook 'my-after-save-actions)
   (defun backward-kill-line (arg)
     "Kill ARG lines backward."
     (interactive "p")
     (kill-line (- 1 arg)))
-  (global-set-key (kbd "<s-backspace>") 'backward-kill-line)
-  (global-set-key (kbd "C-M-]") 'kill-line)
-  (global-set-key (kbd "M-s-|") 'kill-word)
-  (global-set-key (kbd "M-s-!") 'beginning-of-line)
-  (global-set-key (kbd "M-s-@") 'end-of-line)
-  (global-set-key (kbd "M-s-#") 'evil-backward-word-begin)
-  (global-set-key (kbd "C-z") 'org-babel-execute-src-block)
-  (setq org-todo-keywords
-        '((sequence "TODO(t!)" "NEXT(n!)" "DOINGNOW(d!)" "BLOCKED(b!)" "TODELEGATE(g!)" "DELEGATED(D!)" "FOLLOWUP(f!)" "TICKLE(T!)" "|" "CANCELLED(c!)" "DONE(F!)")))
-  (setq org-todo-keyword-faces
-        '(("TODO" . org-warning)
-          ("DOINGNOW" . "#E35DBF")
-          ("CANCELED" . (:foreground "white" :background "#4d4d4d" :weight bold))
-          ("DELEGATED" . "pink")
-          ("NEXT" . "#008080")))
+
   (defun h_world ()
     (print "hello world!!")
     (message "hello world!!")
@@ -423,91 +531,337 @@ before packages are loaded. If you are unsure, you should try in setting them in
     (print "hello world!!")
     (message "hello world!!")
     )
-  (defun copy_rel_path_auto ()
+  (defun resolve-rel-path-auto ()
+    (let ((file-name (or (buffer-file-name) list-buffers-directory)))
+      (if file-name
+          (progn
+            (setq nfn buffer-file-name)
+            (setq nfn (s-replace "/Users/rst/lib/rc/" "l" nfn))
+            (setq nfn (s-replace "/Users/rst/lib/as/" "a" nfn))
+            (setq nfn (s-replace "/Users/rst/lib/py/" "p" nfn))
+            (setq nfn (s-replace "/Users/rst/lib/ss/" "s" nfn))
+            (vd 'nfn)
+            ;; (message (kill-new nfn))
+            (print nfn)
+            )
+        (error "Buffer not visiting a file")))
+    )
+  (defun copy-rel-path-auto ()
+    (interactive)
+    (message (kill-new (subseq (resolve-rel-path-auto) 1)))
+    )
+
+  (defun copy-rel-path-goku-key ()
+                          (interactive)
+                          (message (kill-new (concat "[:" (read-string "key: ") " [:xl" (subseq (resolve-rel-path-auto) 0 1) " \"" (subseq (resolve-rel-path-auto) 1) "\"]]")))
+                          )
+
+
+  (defun copy-file-name-directory()
     (interactive)
     (let ((file-name (or (buffer-file-name) list-buffers-directory)))
       (if file-name
           (progn
-            (setq nfn (s-replace "/Users/rst/lib/rc/" "" buffer-file-name))
-            (vd 'nfn)
-            (message (kill-new file-name)))
+            (message (kill-new (file-name-directory file-name)))
+            )
         (error "Buffer not visiting a file")))
     )
-  (defun execute-buffer-auto ()
+  (defun copy-file-name-nondirectory()
     (interactive)
+    (let ((file-name (or (buffer-file-name) list-buffers-directory)))
+      (if file-name
+          (progn
+            (message (kill-new (file-name-nondirectory file-name)))
+            )
+        (error "Buffer not visiting a file")))
+    )
+
+  (defun dired-do-snippet-action1 (&optional arg)
+    "Delete all marked (or next ARG) files.
+`dired-recursive-deletes' controls whether deletion of
+non-empty directories is allowed."
+    ;; This is more consistent with the file marking feature than
+    ;; dired-do-flagged-delete.
+    (interactive "P")
+
+    ;; (spacemacs/alternate-window)
+    ;; (dired-do-snippet-action1)
+    ;; (find-file "/Users/rst/.emacs.d/private/snippets/lisp-mode/comment")
+    ;; (end-of-buffer)
+    ;; (execute-kbd-macro 'insert_foobar)
+
+    ;; (kmacro-pop-ring)
+    ;; (find-file "/Users/rst/.emacs.d/private/snippets/lisp-mode/comment")
+    ;; (execute-kbd-macro [?i ?f ?o ?o ?b ?a ?r escape])
+
+    (let ((lst (dired-map-over-marks (print (dired-get-filename))
+                                     nil)))
+      (progn (loop for x in lst
+             do (print x)))
+      (switch-to-buffer "Music")
+
+
+      )
+     arg t)
+
+
+  (defun execute-file-auto ()
+    (interactive)
+    (setq args (read-string "With arg: "))
+    (save-buffer)
     (print buffer-file-name)
     (setq qbfn (concat "'" buffer-file-name "'"))
-    (setq scm (concat "chmod 777 " qbfn "; " qbfn))
+    (setq scm (concat "chmod 777 " qbfn "; " qbfn " " args))
     (vd 'scm)
     (shell-command scm)
     )
+(defun switch_to_messages_buffer ()
+  (interactive)
+  (switch-to-buffer "*Messages*")
+  (end-of-buffer))
+(defun gepy ()
+  (persp-add "lala")
+  (shell "jup")
+  (start-process "jup" "jup" "jupyter-notebook" "--no-browser" "--port" "5555")
+  (shell "klg")
+  (start-process "klg" "klg" "keylogger")
+)
+(defun google-it(query)
+  (start-process "open" "open" "open" (concat "https://www.google.com/search?q=" query))
+  )
+(defun google-last-message ()
+  (interactive)
+  (google-it (with-current-buffer (get-buffer-create "*Messages*") 
+               (progn (end-of-buffer)(string-trim (thing-at-point 'line t)))))
+  )
+(defun google-last-warning ()
+  (interactive)
+  (google-it (with-current-buffer (get-buffer-create "*Warnings*") 
+               (progn (end-of-buffer)(string-trim (thing-at-point 'line t)))))
+  )
+;; VARIABLES
+  (setq org-todo-keywords
+        '((sequence "TODO(t!)" "NEXT(n!)" "DOINGNOW(d!)" "BLOCKED(b!)" "TODELEGATE(g!)" "DELEGATED(D!)" "FOLLOWUP(f!)" "TICKLE(T!)" "|" "CANCELLED(c!)" "DONE(F!)")))
+  (setq org-todo-keyword-faces
+        '(("TODO" . org-warning)
+          ("DOINGNOW" . "#E35DBF")
+          ("CANCELED" . (:foreground "white" :background "#4d4d4d" :weight bold))
+          ("DELEGATED" . "pink")
+          ("NEXT" . "#008080")))
+  ;; (setq org-tag-faces
+  ;;       '((sequence "aals(A!)" "amsu" "avsb" "21" "42(h!)" "chrome" "comm" "NEXT(n!)" "DOINGNOW(d!)" "BLOCKED(b!)" "TODELEGATE(g!)" "DELEGATED(D!)" "FOLLOWUP(f!)" "TICKLE(T!)" "|" "CANCELLED(c!)" "DONE(F!)")))
+  (setq org-tag-alist '(("@work" . ?w) ("@home" . ?h) ("laptop" . ?l)))
+  ;; (setq org-tag-alist '(("TODAY" . ?w) ("APPT" . ?h) ("NEXT" . ?l)))
+  (setq org-tag-alist '(("TODAY" . ?w) ("APPT" . ?h) ("NEXT" . ?l)))
+
+  (setq org-tag-alist '((:startgrouptag)
+                        ("GTD" . ?g)
+                        (:grouptags)
+                        ("Control")
+                        ("Persp")
+                        (:endgrouptag)
+                        (:startgrouptag)
+                        ("Control")
+                        (:grouptags)
+                        ("Context")
+                        ("Tass")
+                        (:endgrouptag)))
+  (setq org-tag-faces
+        '(("TODAY" . (:foreground "#C00000"))
+          ("APPT"  . (:foreground "#4d4d4d"))
+          ("NEXT"  . (:foreground "#E35DBF"))))
+
+  ;; (use-package org-fancy-priorities
+  ;;   :ensure t
+  ;;   :hook
+  ;;   (org-mode . org-fancy-priorities-mode)
+  ;;   :config
+  ;;   (setq org-fancy-priorities-list '("⚡" "⬆" "⬇" "☕")))
+
+
  ;; KEYS definitions:
   ;; (global-set-key (kbd ""))
-  (with-eval-after-load 'spacemacs
-   (spacemacs/set-leader-keys "fy" nil)
-   (spacemacs/declare-prefix "fy" "Yanking ...")
-   (spacemacs/set-leader-keys "fyy" 'spacemacs/show-and-copy-buffer-filename)
-   (spacemacs/set-leader-keys "fya" 'spacemacs/show-and-copy-buffer-filename)
-   (spacemacs/set-leader-keys "fyr" nil)
-   (spacemacs/declare-prefix "fyr" "relative ..")
-   (spacemacs/set-leader-keys "fyrr" 'copy_rel_path_auto)
-   (spacemacs/declare-prefix "bx" "Exec ...")
-   (spacemacs/set-leader-keys "bxx" 'execute-buffer-auto)
+
+
+  (global-visual-line-mode t)
+(setq dotspacemacs-distinguish-gui-tab t)
+(setq org-ref-bibliography-notes "~/org/ref/notes.org"
+      org-ref-default-bibliography '("~/org/ref/master.bib")
+      org-ref-pdf-directory "~/org/ref/pdfs/"
+)
+
+;; KEYBINDINGS:
+(fset 'insert_foobar [?i ?f ?o ?o ?b ?a ?r escape])
+(fset 'insert_foobar2 [?i ?f ?o ?o ?b ?a escape])
+(evil-set-register ?f [?i ?f ?o ?o ?b ?a ?r escape])
+(evil-set-register ?q [?i ?f ?o ?o ?b ?a escape])
+(global-set-key (kbd "<s-backspace>") 'backward-kill-line)
+(global-set-key (kbd "C-M-]") 'kill-line)
+(global-set-key (kbd "M-s-|") 'kill-word)
+(global-set-key (kbd "M-m") 'spacemacs/frame-killer)
+(global-set-key (kbd "M-s-!") 'beginning-of-line)
+(global-set-key (kbd "M-s-@") 'end-of-line)
+(global-set-key (kbd "M-s-#") 'evil-backward-word-begin)
+(global-set-key (kbd "C-z") 'org-babel-execute-src-block)
+(global-set-key (kbd "C-z") 'org-babel-execute-src-block)
+(global-set-key (kbd "C-k") 'nil)
+;; C-j was:  (org-return-indent)
+(define-key org-mode-map (kbd "C-k") 'org-backward-paragraph)
+(define-key org-mode-map (kbd "C-j") 'org-forward-paragraph)
+;; LEADER KEYS
+(setq spacemacs/key-binding-prefixes '(
+                                       ("o" "own-menu")
+                                       ("og" "Google ...")
+                                       ("fy" "Yanking ...")
+                                       ("fyr" "relative ..")
+                                       ("fx" "Exec ...")
+                                       ))
+;; (print server-name)
+;; (server-start)
+;; (set-variable 'server-name "foo")
+;; (setq server-socket-dir "~/.emacs.d/server")
+(spacemacs/set-leader-keys "os" 'org-save-all-org-buffers
+"oi" 'helm-org-agenda-files-headings
+"ogm" 'google-last-message
+"ogw" 'google-last-warning
+"iSc" 'yas-new-snippet
+"fy" nil
+"fy" nil
+"fyy" 'spacemacs/show-and-copy-buffer-filename
+"fya" 'spacemacs/show-and-copy-buffer-filename
+"fyf" 'copy-file-name-nondirectory
+"fyd" 'copy-file-name-directory
+"fyr" nil
+"fyrr" 'copy-rel-path-auto
+"fyrg" 'copy-rel-path-goku-key
+"fx" nil
+"fxx" 'execute-file-auto
+"bm" 'switch_to_messages_buffer
+"fk" 'helm-bookmarks
+"wx" 'kill-buffer-and-window
+"k[" 'beginning-of-defun
+"k]" (lambda () (interactive) (progn (beginning-of-defun)(evil-jump-item)))
+)
+
+
+(spacemacs/declare-prefix-for-mode 'emacs-lisp-mode "m" "Mark ...")
+(spacemacs/set-leader-keys-for-minor-mode 'emacs-lisp-mode  "m" nil)
+(spacemacs/set-leader-keys-for-minor-mode 'emacs-lisp-mode  "[" 'beginning-of-defun)
+(spacemacs/set-leader-keys-for-minor-mode 'emacs-lisp-mode  "]" (lambda () (interactive) (progn (beginning-of-defun)(evil-jump-item))))
+(spacemacs/set-leader-keys-for-minor-mode 'emacs-lisp-mode  "." (lambda () (interactive) (spacemacs/defun-jump-transient-state-transient-state/end-of-defun)))
+(spacemacs/set-leader-keys-for-minor-mode 'emacs-lisp-mode  "mf" 'mark-defun)
+(defvar treemacs-node-visit-map
+  (let ((map (make-sparse-keymap)))
+    (define-key map (kbd "s")        #'treemacs-visit-node-vertical-split)
+    (define-key map (kbd "v")        #'treemacs-visit-node-horizontal-split)
+    (define-key map (kbd "o")        #'treemacs-visit-node-no-split)
+    (define-key map (kbd "aa")       #'treemacs-visit-node-ace)
+    (define-key map (kbd "av")       #'treemacs-visit-node-ace-horizontal-split)
+    (define-key map (kbd "as")       #'treemacs-visit-node-ace-vertical-split)
+    (define-key map (kbd "r")        #'treemacs-visit-node-in-most-recently-used-window)
+    (define-key map (kbd "x")        #'treemacs-visit-node-in-external-application)
+    map)
+  "Keymap for node-visiting commands in `treemacs-mode'.")
+
+;; (spacemacs/set-leader-keys "fed" (lambda () (interactive) (progn (find-file "~/.spacemacs") (narrow-to-defun 'dotspacemacs/user-config))))
+;; )
+
+;; TRANSIENT STATES
+(spacemacs|define-transient-state window-manipulation
+  :title "Window Manipulation Transient State"
+  :doc (concat "
+ Select^^^^               Move^^^^              Split^^               Resize^^             Other^^
+ ──────^^^^─────────────  ────^^^^────────────  ─────^^─────────────  ──────^^───────────  ─────^^──────────────────
+ [_j_/_k_]  down/up       [_J_/_K_] down/up     [_s_] vertical        [_[_] shrink horiz   [_u_] restore prev layout
+ [_h_/_l_]  left/right    [_H_/_L_] left/right  [_S_] verti & follow  [_]_] enlarge horiz  [_U_] restore next layout
+ [_0_.._9_] window 0..9   [_r_]^^   rotate fwd  [_v_] horizontal      [_{_] shrink verti   [_d_] close current
+ [_w_]^^    other window  [_R_]^^   rotate bwd  [_V_] horiz & follow  [_}_] enlarge verti  [_D_] close other
+ [_x_]^^    kill window and the buffer
+ [_o_]^^    other frame   ^^^^                  ^^                    ^^                   "
+               (if (configuration-layer/package-usedp 'golden-ratio)
+                   "[_g_] golden-ratio %`golden-ratio-mode"
+                 "")
+               "\n ^^^^                     ^^^^                  ^^                    ^^                   [_q_] quit")
+  :bindings
+  ("q" nil :exit t)
+  ("0" winum-select-window-0)
+  ("1" winum-select-window-1)
+  ("2" winum-select-window-2)
+  ("3" winum-select-window-3)
+  ("4" winum-select-window-4)
+  ("5" winum-select-window-5)
+  ("6" winum-select-window-6)
+  ("7" winum-select-window-7)
+  ("8" winum-select-window-8)
+  ("9" winum-select-window-9)
+  ("-" split-window-below-and-focus)
+  ("/" split-window-right-and-focus)
+  ("[" spacemacs/shrink-window-horizontally)
+  ("]" spacemacs/enlarge-window-horizontally)
+  ("{" spacemacs/shrink-window)
+  ("}" spacemacs/enlarge-window)
+  ("d" delete-window)
+  ("D" delete-other-windows)
+  ("h" evil-window-left)
+  ("<left>" evil-window-left)
+  ("j" evil-window-down)
+  ("<down>" evil-window-down)
+  ("k" evil-window-up)
+  ("<up>" evil-window-up)
+  ("l" evil-window-right)
+  ("<right>" evil-window-right)
+  ("H" evil-window-move-far-left)
+  ("<S-left>" evil-window-move-far-left)
+  ("J" evil-window-move-very-bottom)
+  ("<S-down>" evil-window-move-very-bottom)
+  ("K" evil-window-move-very-top)
+  ("<S-up>" evil-window-move-very-top)
+  ("L" evil-window-move-far-right)
+  ("<S-right>" evil-window-move-far-right)
+  ("o" other-frame)
+  ("r" spacemacs/rotate-windows-forward)
+  ("R" spacemacs/rotate-windows-backward)
+  ("s" split-window-below)
+  ("S" split-window-below-and-focus)
+  ("u" winner-undo)
+  ("U" winner-redo)
+  ("v" split-window-right)
+  ("V" split-window-right-and-focus)
+  ("w" other-window)
+  ("x" kill-buffer-and-window)
   )
 
-  (when (string= system-type "darwin")
-    (setq dired-use-ls-dired nil))
-  (setq my_path (getenv "PATH"))
-  (progn (print "my_path:")(print my_path))
+;; TRANSIENT STATE
 
-  (load "~/.hammerspoon/spacehammer.el")
-(global-visual-line-mode t)
-;; (require 'atomic-chrome)
-;; (atomic-chrome-start-server)
-;; (setq atomic-chrome-default-major-mode 'markdown-mode)
-
-;;  (require 'package)
-;  (add-to-list 'package-archives '("org" . "http://orgmode.org/elpa/") t)
-  ;; (with-eval-after-load 'org
-  ;; (require 'ox-beamer)
-  ;; (require 'ox-publish)
-  ;; (org-babel-do-load-lanuages 'org-babel-load-languages
-  ;;                      rch       '(
-  ;;                               (shell . t)
-  ;;                                (perl . t)
-  ;;                                (R . t)
-  ;;                                (python . t)
-  ;;                                (C . t)
-  ;;                                (perl . t)
-  ;;                                (php . t)
-  ;;                                (js . t)
-  ;;                                )
-  ;;                              )
-  ;; (defun my-org-confirm-babel-evaluate (lang body)
-  ;;   (not (member lang '("C" "clojure" "sh"))))
-
-  ;; (setq org-confirm-babel-evaluate 'my-org-confirm-babel-evaluate)
-  ;; )
-
-;  USELESS:  (setq exec-path-from-shell-arguments '())
-; USELESS: (setq exec-path-from-shell-check-startup-files nil)
-
+(spacemacs|define-transient-state defun-jump-transient-state
+  :title "Defun Jump Transient State2"
+  :doc (concat "
+ [_k_] prev defun p n    [_j_]^^   next defun
+ ^^^^                                      [_q_]^^   quit")
+  :bindings
+  ("q" nil :exit t)
+  ("k" beginning-of-defun)
+  ("j" end-of-defun)
+  ("r" hwd)
+  ("p" beginning-of-defun)
+  ("n" end-of-defun)
   )
 
-;; ("\\.Z\\'" nil jka-compr)
+;; SETQs
+(ranger-override-dired-mode t)
+(setq my_path (getenv "PATH"))
+;; MISC CODE:
 
-(defun dotspacemacs/user-config ()
-  "Configuration function for user code.
-This function is called at the very end of Spacemacs initialization after
-layers configuration.
-This is the place where most of your configurations should be done. Unless it is
-explicitly specified that a variable should be set before a package is loaded,
-you should place your code here."
-  (message "very end!! of /Users/rst/.spacemacs !!!")
-;;(persp-load-state-from-file "~/.emacs.d/.cache/layouts/eyebrowse_layout1")
-;;(spacemacs/layouts-transient-state/spacemacs/persp-switch-to-5)
-  )
+(when (string= system-type "darwin")
+  (setq dired-use-ls-dired nil))
+(progn (print "my_path:")(print my_path))
 
+(load "~/.hammerspoon/spacehammer.el")
+
+
+(defun yasnippet-snippets--fixed-indent ()
+  (print "I am ugly function yasnippet...indent"))
+)
 ;; Do not write anything past this comment. This is where Emacs will
 ;; auto-generate custom variable definitions.
 (custom-set-variables
@@ -515,10 +869,19 @@ you should place your code here."
  ;; If you edit it by hand, you could mess it up, so be careful.
  ;; Your init file should contain only one such instance.
  ;; If there is more than one, they won't work right.
- '(org-agenda-files (quote ("~/org/main.org")))
+ '(bmkp-last-as-first-bookmark-file "/Users/rst/.emacs.d/.cache/bookmarks")
+ '(org-agenda-files (quote ("~/org/main.org" "~/org/journal.org")))
  '(package-selected-packages
    (quote
-    (ob-applescript atomic-chrome bm evil-snipe pdf-tools tablist applescript-mode web-beautify livid-mode skewer-mode simple-httpd json-mode json-snatcher json-reformat js2-refactor js2-mode js-doc company-tern tern coffee-mode clojure-snippets clj-refactor inflections multiple-cursors paredit cider-eval-sexp-fu cider sesman queue parseedn clojure-mode parseclj a lua-mode yaml-mode phpunit phpcbf php-extras php-auto-yasnippets drupal-mode php-mode web-mode tagedit slim-mode scss-mode sass-mode pug-mode helm-css-scss haml-mode emmet-mode company-web web-completion-data yapfify pyvenv pytest pyenv-mode py-isort pip-requirements live-py-mode hy-mode dash-functional helm-pydoc cython-mode company-anaconda anaconda-mode pythonic unfill mwim helm-company helm-c-yasnippet git-gutter-fringe+ git-gutter-fringe fringe-helper git-gutter+ git-gutter fuzzy diff-hl company-statistics company ac-ispell auto-complete org-evil monitor auto-yasnippet yasnippet smeargle orgit org-projectile org-category-capture org-present org-pomodoro alert log4e gntp org-mime org-download mmm-mode markdown-toc markdown-mode magit-gitflow magit-popup htmlize helm-gitignore gnuplot gitignore-mode gitconfig-mode gitattributes-mode git-timemachine git-messenger git-link gh-md flyspell-correct-helm flyspell-correct flycheck-pos-tip pos-tip flycheck evil-magit magit git-commit with-editor transient auto-dictionary dired-ranger ranger ws-butler winum which-key volatile-highlights vi-tilde-fringe uuidgen use-package toc-org spaceline restart-emacs request rainbow-delimiters popwin persp-mode pcre2el paradox org-plus-contrib org-bullets open-junk-file neotree move-text macrostep lorem-ipsum linum-relative link-hint indent-guide hungry-delete hl-todo highlight-parentheses highlight-numbers highlight-indentation helm-themes helm-swoop helm-projectile helm-mode-manager helm-make helm-flx helm-descbinds helm-ag google-translate golden-ratio flx-ido fill-column-indicator fancy-battery eyebrowse expand-region exec-path-from-shell evil-visualstar evil-visual-mark-mode evil-unimpaired evil-tutor evil-surround evil-search-highlight-persist evil-numbers evil-nerd-commenter evil-mc evil-matchit evil-lisp-state evil-indent-plus evil-iedit-state evil-exchange evil-escape evil-ediff evil-args evil-anzu eval-sexp-fu elisp-slime-nav dumb-jump diminish define-word column-enforce-mode clean-aindent-mode auto-highlight-symbol auto-compile aggressive-indent adaptive-wrap ace-window ace-link ace-jump-helm-line))))
+    (pippel dap-mode helm-lsp yasnippet-snippets ein polymode deferred anaphora websocket helm-tramp helm-bm spotlight apples-mode helm-org company-lsp lsp-ui lsp-mode ob-applescript atomic-chrome bm evil-snipe pdf-tools tablist applescript-mode web-beautify livid-mode skewer-mode simple-httpd json-mode json-snatcher json-reformat js2-refactor js2-mode js-doc company-tern tern coffee-mode clojure-snippets clj-refactor inflections multiple-cursors paredit cider-eval-sexp-fu cider sesman queue parseedn clojure-mode parseclj a lua-mode yaml-mode phpunit phpcbf php-extras php-auto-yasnippets drupal-mode php-mode web-mode tagedit slim-mode scss-mode sass-mode pug-mode helm-css-scss haml-mode emmet-mode company-web web-completion-data yapfify pyvenv pytest pyenv-mode py-isort pip-requirements live-py-mode hy-mode dash-functional helm-pydoc cython-mode company-anaconda anaconda-mode pythonic unfill mwim helm-company helm-c-yasnippet git-gutter-fringe+ git-gutter-fringe fringe-helper git-gutter+ git-gutter fuzzy diff-hl company-statistics company ac-ispell auto-complete org-evil monitor auto-yasnippet yasnippet smeargle orgit org-category-capture org-present org-pomodoro alert log4e gntp org-mime org-download mmm-mode markdown-toc markdown-mode magit-gitflow magit-popup htmlize helm-gitignore gnuplot gitignore-mode gitconfig-mode gitattributes-mode git-timemachine git-messenger git-link gh-md flyspell-correct-helm flyspell-correct flycheck-pos-tip pos-tip flycheck evil-magit magit git-commit with-editor transient auto-dictionary dired-ranger ranger ws-butler winum which-key volatile-highlights vi-tilde-fringe uuidgen use-package toc-org spaceline restart-emacs request rainbow-delimiters popwin persp-mode pcre2el paradox org-plus-contrib org-bullets open-junk-file neotree move-text macrostep lorem-ipsum linum-relative link-hint indent-guide hungry-delete hl-todo highlight-parentheses highlight-numbers highlight-indentation helm-themes helm-swoop helm-projectile helm-mode-manager helm-make helm-flx helm-descbinds helm-ag google-translate golden-ratio flx-ido fill-column-indicator fancy-battery eyebrowse expand-region exec-path-from-shell evil-visualstar evil-visual-mark-mode evil-unimpaired evil-tutor evil-surround evil-search-highlight-persist evil-numbers evil-nerd-commenter evil-mc evil-matchit evil-lisp-state evil-indent-plus evil-iedit-state evil-exchange evil-escape evil-ediff evil-args evil-anzu eval-sexp-fu elisp-slime-nav dumb-jump diminish define-word column-enforce-mode clean-aindent-mode auto-highlight-symbol auto-compile aggressive-indent adaptive-wrap ace-window ace-link ace-jump-helm-line)))
+ '(safe-local-variable-values
+   (quote
+    ((python-backend . lsp)
+     (help-mode-hook quote
+                     (quote hwd))
+     (after-save-hook lambda nil
+                      (interactive)
+                      (message "Dotfile saved"))))))
 (custom-set-faces
  ;; custom-set-faces was added by Custom.
  ;; If you edit it by hand, you could mess it up, so be careful.
@@ -527,3 +890,17 @@ you should place your code here."
  )
 
 (org-reload)
+
+(setq org-default-notes-file (concat org-directory "/remember-notes.org"))
+(setq org-remember-templates
+      `(("Todo"    ?t "* TODO %?\n  %i\n" ,(concat org-directory "/remember-notes.org") bottom)
+        ("Misc"    ?m "* %?\n  %i\n"      ,(concat org-directory "/Notes.org")   "Misc")
+        ("iNfo"    ?n "* %?\n  %i\n"      ,(concat org-directory "/Notes.org")   "Information")
+        ("Idea"    ?i "* %?\n  %i\n"      ,(concat org-directory "/Notes.org")   "Ideas")
+        ("Journal" ?j "* %T %?\n\n  %i\n" ,(concat org-directory "/journal.org") bottom)
+        ("Blog"    ?b "* %T %? :BLOG:\n\n  %i\n" ,(concat org-directory "/journal.org") bottom)
+        ))
+
+;; Local Variables:
+;; after-save-hook: (lambda () (interactive) (message "Dotfile saved"))
+;; END:
