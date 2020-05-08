@@ -119,7 +119,7 @@ values."
    ;; when the current branch is not `develop'. Note that checking for
    ;; new versions works via git commands, thus it calls GitHub services
    ;; whenever you start Emacs. (default nil)
-   dotspacemacs-check-for-update nil
+   dotspacemacs-check-for-update t
    ;; If non-nil, a form that evaluates to a package directory. For example, to
    ;; use different package directories for different Emacs versions, set this
    ;; to `emacs-version'.
@@ -604,6 +604,8 @@ non-empty directories is allowed."
       )
      arg t)
 
+  (defun my-eval-string (string)
+    (eval (car (read-from-string (format "(progn %s)" string)))))
 
   (defun execute-file-auto ()
     (interactive)
@@ -615,10 +617,15 @@ non-empty directories is allowed."
     (vd 'scm)
     (shell-command scm)
     )
-(defun switch_to_messages_buffer ()
-  (interactive)
-  (switch-to-buffer "*Messages*")
-  (end-of-buffer))
+
+  (defun ace-starred (buf-name ori)
+    (interactive)
+    (let* ((sw (selected-window)))
+               (with-selected-window (aw-select "Select window for *Messages* buffer")(my-eval-string (concat "(split-window-" ori "-and-focus)"))(switch-to-buffer "*Messages*")(end-of-buffer)(select-window sw))
+               ))
+  (defun ace-messages-right () (interactive)(ace-starred "*Messages*" "right"))
+  (defun ace-messages-below () (interactive)(ace-starred "*Messages*" "below"))
+
 (defun gepy ()
   (persp-add "lala")
   (shell "jup")
@@ -629,15 +636,122 @@ non-empty directories is allowed."
 (defun google-it(query)
   (start-process "open" "open" "open" (concat "https://www.google.com/search?q=" query))
   )
-(defun google-last-message ()
-  (interactive)
-  (google-it (with-current-buffer (get-buffer-create "*Messages*") 
-               (progn (end-of-buffer)(string-trim (thing-at-point 'line t)))))
+(defun get-last-trimmed-line (buf-name)
+  (with-current-buffer (get-buffer-create buf-name)
+    (progn (goto-char (point-max))(string-trim (thing-at-point 'line t))))
   )
-(defun google-last-warning ()
+(defun google-last-message () (interactive) (google-it (get-last-trimmed-line "*Messages*")))
+(defun google-last-warning () (interactive) (google-it (get-last-trimmed-line "*Warnings*")))
+
+(defun htop ()
   (interactive)
-  (google-it (with-current-buffer (get-buffer-create "*Warnings*") 
-               (progn (end-of-buffer)(string-trim (thing-at-point 'line t)))))
+  (if (get-buffer "*htop*")
+      (switch-to-buffer "*htop*")
+    (ansi-term "/bin/bash" "htop")
+    (comint-send-string "*htop*" "htop\n")))
+(defun htop-emacs ()
+  (interactive)
+  (if (get-buffer "*htop*")
+      (switch-to-buffer "*htop*")
+    (ansi-term "/bin/bash" "htop")
+    (comint-send-string "*htop*" "htop\n")))
+(defun server-shutdown ()
+  "Save buffers, Quit, and Shutdown (kill) server"
+  (interactive)
+  (save-some-buffers)
+  (kill-emacs)
+  )
+(defun client-save-kill-emacs(&optional display)
+  " This is a function that can bu used to shutdown save buffers and
+shutdown the emacs daemon. It should be called using
+emacsclient -e '(client-save-kill-emacs)'.  This function will
+check to see if there are any modified buffers or active clients
+or frame.  If so an x window will be opened and the user will
+be prompted."
+
+  (let (new-frame modified-buffers active-clients-or-frames)
+
+    ; Check if there are modified buffers or active clients or frames.
+    (setq modified-buffers (modified-buffers-exist))
+    (setq active-clients-or-frames ( or (> (length server-clients) 1)
+					(> (length (frame-list)) 1)
+				       ))
+
+    ; Create a new frame if prompts are needed.
+    (when (or modified-buffers active-clients-or-frames)
+      (when (not (eq window-system 'x))
+	(message "Initializing x windows system.")
+	(x-initialize-window-system))
+      (when (not display) (setq display (getenv "DISPLAY")))
+      (message "Opening frame on display: %s" display)
+      (select-frame (make-frame-on-display display '((window-system . x)))))
+
+    ; Save the current frame.
+    (setq new-frame (selected-frame))
+
+
+    ; When displaying the number of clients and frames:
+    ; subtract 1 from the clients for this client.
+    ; subtract 2 from the frames this frame (that we just created) and the default frame.
+    (when ( or (not active-clients-or-frames)
+	       (yes-or-no-p (format "There are currently %d clients and %d frames. Exit anyway?" (- (length server-clients) 1) (- (length (frame-list)) 2))))
+
+      ; If the user quits during the save dialog then don't exit emacs.
+      ; Still close the terminal though.
+      (let((inhibit-quit t))
+             ; Save buffers
+	(with-local-quit
+	  (save-some-buffers))
+
+	(if quit-flag
+	  (setq quit-flag nil)
+          ; Kill all remaining clients
+	  (progn
+	    (dolist (client server-clients)
+	      (server-delete-client client))
+		 ; Exit emacs
+	    (kill-emacs)))
+	))
+
+    ; If we made a frame then kill it.
+    (when (or modified-buffers active-clients-or-frames) (delete-frame new-frame))
+    )
+  )
+(defun modified-buffers-exist()
+  "This function will check to see if there are any buffers
+that have been modified.  It will return true if there are
+and nil otherwise. Buffers that have buffer-offer-save set to
+nil are ignored."
+  (let (modified-found)
+    (dolist (buffer (buffer-list))
+      (when (and (buffer-live-p buffer)
+		 (buffer-modified-p buffer)
+		 (not (buffer-base-buffer buffer))
+		 (or
+		  (buffer-file-name buffer)
+		  (progn
+		    (set-buffer buffer)
+		    (and buffer-offer-save (> (buffer-size) 0))))
+		 )
+	(setq modified-found t)
+	)
+      )
+    modified-found
+    )
+  )
+
+(defun helm-filtered-bookmarks ()
+  "Preconfigured helm for bookmarks (filtered by category).
+Optional source `helm-source-bookmark-addressbook' is loaded
+only if external addressbook-bookmark package is installed."
+  (interactive)
+  (helm :sources helm-bookmark-default-filtered-sources
+        :prompt "Search Bookmark: "
+        :buffer "*helm filtered bookmarks*"
+        :default (list (thing-at-point 'symbol)
+                       (buffer-name helm-current-buffer)))
+  (recenter nil)
+  (message "aa")
   )
 ;; VARIABLES
   (setq org-todo-keywords
@@ -715,20 +829,28 @@ non-empty directories is allowed."
                                        ("fy" "Yanking ...")
                                        ("fyr" "relative ..")
                                        ("fx" "Exec ...")
+                                       ("fx" "Exec ...")
+                                       ("bc" "ACE ...")
+                                       ("bcs" "Ace starred...")
                                        ))
 ;; (print server-name)
 ;; (server-start)
-;; (set-variable 'server-name "foo")
-;; (setq server-socket-dir "~/.emacs.d/server")
-(spacemacs/set-leader-keys "os" 'org-save-all-org-buffers
+;; emacsclient -s
+;; (progn (set-variable 'server-name "gepy") (setq server-socket-dir "~/.emacs.d/servers/"))
+;; emacs --eval $'(progn (set-variable \'server-name "gepy") (setq server-socket-dir "~/.emacs.d/servers/")(server-start))'
+;; emacsclient -s "/Users/rst/.emacs.d/servers/gepy" --eval '(load-file "/tmp/gepy.el")'
+
+
+(spacemacs/set-leader-keys
+"os" 'org-save-all-org-buffers
 "oi" 'helm-org-agenda-files-headings
 "ogm" 'google-last-message
 "ogw" 'google-last-warning
 "iSc" 'yas-new-snippet
 "fy" nil
 "fy" nil
-"fyy" 'spacemacs/show-and-copy-buffer-filename
-"fya" 'spacemacs/show-and-copy-buffer-filename
+"fyy" (lambda () (interactive) (kill-new (buffer-file-name)))
+"fya" (lambda () (interactive) (kill-new (buffer-file-name)))
 "fyf" 'copy-file-name-nondirectory
 "fyd" 'copy-file-name-directory
 "fyr" nil
@@ -736,13 +858,13 @@ non-empty directories is allowed."
 "fyrg" 'copy-rel-path-goku-key
 "fx" nil
 "fxx" 'execute-file-auto
-"bm" 'switch_to_messages_buffer
 "fk" 'helm-bookmarks
-"wx" 'kill-buffer-and-window
+"wx" 'ill-buffer-and-window
 "k[" 'beginning-of-defun
 "k]" (lambda () (interactive) (progn (beginning-of-defun)(evil-jump-item)))
+"bcsmr" 'ace-messages-right
+"bcsmb" 'ace-messages-below
 )
-
 
 (spacemacs/declare-prefix-for-mode 'emacs-lisp-mode "m" "Mark ...")
 (spacemacs/set-leader-keys-for-minor-mode 'emacs-lisp-mode  "m" nil)
@@ -767,23 +889,21 @@ non-empty directories is allowed."
 ;; )
 
 ;; TRANSIENT STATES
-(spacemacs|define-transient-state window-manipulation
-  :title "Window Manipulation Transient State"
-  :doc (concat "
- Select^^^^               Move^^^^              Split^^               Resize^^             Other^^
- ──────^^^^─────────────  ────^^^^────────────  ─────^^─────────────  ──────^^───────────  ─────^^──────────────────
- [_j_/_k_]  down/up       [_J_/_K_] down/up     [_s_] vertical        [_[_] shrink horiz   [_u_] restore prev layout
- [_h_/_l_]  left/right    [_H_/_L_] left/right  [_S_] verti & follow  [_]_] enlarge horiz  [_U_] restore next layout
- [_0_.._9_] window 0..9   [_r_]^^   rotate fwd  [_v_] horizontal      [_{_] shrink verti   [_d_] close current
- [_w_]^^    other window  [_R_]^^   rotate bwd  [_V_] horiz & follow  [_}_] enlarge verti  [_D_] close other
- [_x_]^^    kill window and the buffer
- [_o_]^^    other frame   ^^^^                  ^^                    ^^                   "
-               (if (configuration-layer/package-usedp 'golden-ratio)
-                   "[_g_] golden-ratio %`golden-ratio-mode"
-                 "")
-               "\n ^^^^                     ^^^^                  ^^                    ^^                   [_q_] quit")
+(spacemacs|define-transient-state window
+  :title "Window Transient State with X"
+  :hint-is-doc t
+  :dynamic-hint (spacemacs//window-ts-hint)
   :bindings
-  ("q" nil :exit t)
+  ("?" spacemacs//window-ts-toggle-hint)
+  ;; Select
+  ("j" evil-window-down)
+  ("<down>" evil-window-down)
+  ("k" evil-window-up)
+  ("<up>" evil-window-up)
+  ("h" evil-window-left)
+  ("<left>" evil-window-left)
+  ("l" evil-window-right)
+  ("<right>" evil-window-right)
   ("0" winum-select-window-0)
   ("1" winum-select-window-1)
   ("2" winum-select-window-2)
@@ -794,42 +914,42 @@ non-empty directories is allowed."
   ("7" winum-select-window-7)
   ("8" winum-select-window-8)
   ("9" winum-select-window-9)
-  ("-" split-window-below-and-focus)
-  ("/" split-window-right-and-focus)
-  ("[" spacemacs/shrink-window-horizontally)
-  ("]" spacemacs/enlarge-window-horizontally)
-  ("{" spacemacs/shrink-window)
-  ("}" spacemacs/enlarge-window)
-  ("d" delete-window)
-  ("D" delete-other-windows)
-  ("h" evil-window-left)
-  ("<left>" evil-window-left)
-  ("j" evil-window-down)
-  ("<down>" evil-window-down)
-  ("k" evil-window-up)
-  ("<up>" evil-window-up)
-  ("l" evil-window-right)
-  ("<right>" evil-window-right)
-  ("H" evil-window-move-far-left)
-  ("<S-left>" evil-window-move-far-left)
+  ("a" ace-window)
+  ("o" other-frame)
+  ("w" other-window)
+  ;; Move
   ("J" evil-window-move-very-bottom)
   ("<S-down>" evil-window-move-very-bottom)
   ("K" evil-window-move-very-top)
   ("<S-up>" evil-window-move-very-top)
+  ("H" evil-window-move-far-left)
+  ("<S-left>" evil-window-move-far-left)
   ("L" evil-window-move-far-right)
   ("<S-right>" evil-window-move-far-right)
-  ("o" other-frame)
   ("r" spacemacs/rotate-windows-forward)
   ("R" spacemacs/rotate-windows-backward)
+  ;; Split
   ("s" split-window-below)
   ("S" split-window-below-and-focus)
-  ("u" winner-undo)
-  ("U" winner-redo)
+  ("-" split-window-below-and-focus)
   ("v" split-window-right)
   ("V" split-window-right-and-focus)
-  ("w" other-window)
+  ("/" split-window-right-and-focus)
+  ("m" spacemacs/toggle-maximize-buffer)
+  ("|" spacemacs/maximize-vertically)
+  ("_" spacemacs/maximize-horizontally)
+  ;; Resize
+  ("[" spacemacs/shrink-window-horizontally)
+  ("]" spacemacs/enlarge-window-horizontally)
+  ("{" spacemacs/shrink-window)
+  ("}" spacemacs/enlarge-window)
+  ;; Other
+  ("d" delete-window)
+  ("D" delete-other-windows)
+  ("u" winner-undo)
+  ("U" winner-redo)
   ("x" kill-buffer-and-window)
-  )
+  ("q" nil :exit t))
 
 ;; TRANSIENT STATE
 
@@ -901,6 +1021,38 @@ non-empty directories is allowed."
         ("Blog"    ?b "* %T %? :BLOG:\n\n  %i\n" ,(concat org-directory "/journal.org") bottom)
         ))
 
+(defun dotspacemacs/emacs-custom-settings ()
+  "Emacs custom settings.
+This is an auto-generated function, do not modify its content directly, use
+Emacs customize menu instead.
+This function is called at the very end of Spacemacs initialization."
+(custom-set-variables
+ ;; custom-set-variables was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(bmkp-last-as-first-bookmark-file "/Users/rst/.emacs.d/.cache/bookmarks")
+ '(evil-want-Y-yank-to-eol nil)
+ '(org-agenda-files (quote ("~/org/main.org" "~/org/journal.org")))
+ '(package-selected-packages
+   (quote
+    (window-number pippel dap-mode helm-lsp yasnippet-snippets ein polymode deferred anaphora websocket helm-tramp helm-bm spotlight apples-mode helm-org company-lsp lsp-ui lsp-mode ob-applescript atomic-chrome bm evil-snipe pdf-tools tablist applescript-mode web-beautify livid-mode skewer-mode simple-httpd json-mode json-snatcher json-reformat js2-refactor js2-mode js-doc company-tern tern coffee-mode clojure-snippets clj-refactor inflections multiple-cursors paredit cider-eval-sexp-fu cider sesman queue parseedn clojure-mode parseclj a lua-mode yaml-mode phpunit phpcbf php-extras php-auto-yasnippets drupal-mode php-mode web-mode tagedit slim-mode scss-mode sass-mode pug-mode helm-css-scss haml-mode emmet-mode company-web web-completion-data yapfify pyvenv pytest pyenv-mode py-isort pip-requirements live-py-mode hy-mode dash-functional helm-pydoc cython-mode company-anaconda anaconda-mode pythonic unfill mwim helm-company helm-c-yasnippet git-gutter-fringe+ git-gutter-fringe fringe-helper git-gutter+ git-gutter fuzzy diff-hl company-statistics company ac-ispell auto-complete org-evil monitor auto-yasnippet yasnippet smeargle orgit org-category-capture org-present org-pomodoro alert log4e gntp org-mime org-download mmm-mode markdown-toc markdown-mode magit-gitflow magit-popup htmlize helm-gitignore gnuplot gitignore-mode gitconfig-mode gitattributes-mode git-timemachine git-messenger git-link gh-md flyspell-correct-helm flyspell-correct flycheck-pos-tip pos-tip flycheck evil-magit magit git-commit with-editor transient auto-dictionary dired-ranger ranger ws-butler winum which-key volatile-highlights vi-tilde-fringe uuidgen use-package toc-org spaceline restart-emacs request rainbow-delimiters popwin persp-mode pcre2el paradox org-plus-contrib org-bullets open-junk-file neotree move-text macrostep lorem-ipsum linum-relative link-hint indent-guide hungry-delete hl-todo highlight-parentheses highlight-numbers highlight-indentation helm-themes helm-swoop helm-projectile helm-mode-manager helm-make helm-flx helm-descbinds helm-ag google-translate golden-ratio flx-ido fill-column-indicator fancy-battery eyebrowse expand-region exec-path-from-shell evil-visualstar evil-visual-mark-mode evil-unimpaired evil-tutor evil-surround evil-search-highlight-persist evil-numbers evil-nerd-commenter evil-mc evil-matchit evil-lisp-state evil-indent-plus evil-iedit-state evil-exchange evil-escape evil-ediff evil-args evil-anzu eval-sexp-fu elisp-slime-nav dumb-jump diminish define-word column-enforce-mode clean-aindent-mode auto-highlight-symbol auto-compile aggressive-indent adaptive-wrap ace-window ace-link ace-jump-helm-line)))
+ '(safe-local-variable-values
+   (quote
+    ((python-backend . lsp)
+     (help-mode-hook quote
+                     (quote hwd))
+     (after-save-hook lambda nil
+                      (interactive)
+                      (message "Dotfile saved"))))))
+(custom-set-faces
+ ;; custom-set-faces was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ )
+)
+"After save activated"
 ;; Local Variables:
 ;; after-save-hook: (lambda () (interactive) (message "Dotfile saved"))
 ;; END:
